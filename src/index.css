@@ -1,0 +1,191 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Common variables */
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --transition-speed: 0.3s;
+  --border-radius: 12px;
+  --border-radius-lg: 20px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* TEC Colors (Dark Blue & Light Blue accents) */
+  --tec-blue: #0A2463;
+  --tec-accent: #3E92CC;
+
+  /* Light Theme */
+  --bg-color: #F8F9FA;
+  --bg-color-alt: #FFFFFF;
+  --text-primary: #121212;
+  --text-secondary: #5F6368;
+  --border-color: #E0E0E0;
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --card-border: rgba(255, 255, 255, 0.4);
+  --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  
+  /* Status Colors */
+  --success: #28a745;
+  --warning: #ffc107;
+  --danger: #dc3545;
+}
+
+[data-theme='dark'] {
+  /* Dark Theme */
+  --bg-color: #121212;
+  --bg-color-alt: #1E1E1E;
+  --text-primary: #F8F9FA;
+  --text-secondary: #A0AAB2;
+  --border-color: #333333;
+  --card-bg: rgba(30, 30, 30, 0.7);
+  --card-border: rgba(255, 255, 255, 0.05);
+  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* System preference fallback */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg-color: #121212;
+    --bg-color-alt: #1E1E1E;
+    --text-primary: #F8F9FA;
+    --text-secondary: #A0AAB2;
+    --border-color: #333333;
+    --card-bg: rgba(30, 30, 30, 0.7);
+    --card-border: rgba(255, 255, 255, 0.05);
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: var(--spacing-md);
+}
+
+p {
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--border-radius);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  border: none;
+  outline: none;
+}
+
+.btn-primary {
+  background-color: var(--tec-blue);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: var(--tec-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(10, 36, 99, 0.3);
+}
+
+.btn-secondary {
+  background-color: var(--bg-color-alt);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--border-color);
+}
+
+/* Form inputs */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--spacing-md);
+}
+
+.input-label {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.input-field {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color-alt);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 14px;
+  transition: border-color var(--transition-speed);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--tec-accent);
+  box-shadow: 0 0 0 3px rgba(62, 146, 204, 0.2);
+}
+
+/* Layout Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm { gap: var(--spacing-sm); }
+.gap-md { gap: var(--spacing-md); }
+.gap-lg { gap: var(--spacing-lg); }
+
+.mt-lg { margin-top: var(--spacing-lg); }
+.mb-lg { margin-bottom: var(--spacing-lg); }

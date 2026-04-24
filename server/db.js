@@ -1,0 +1,66 @@
+import "dotenv/config";
+import pg from "pg";
+
+const { Pool } = pg;
+
+const defaultConnectionString =
+  "postgresql://postgres:postgres@localhost:5432/riofrio";
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || defaultConnectionString,
+});
+
+export const initDb = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('passenger', 'driver')),
+      control_number TEXT DEFAULT '',
+      career TEXT DEFAULT '',
+      avatar TEXT DEFAULT '',
+      is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+      onboarding_complete BOOLEAN NOT NULL DEFAULT FALSE,
+      car_model TEXT DEFAULT '',
+      car_color TEXT DEFAULT '',
+      car_plate TEXT DEFAULT '',
+      car_capacity INTEGER DEFAULT 0,
+      vehicle_photos JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+};
+
+export const mapUserRow = (row) => {
+  if (!row) return null;
+
+  const vehiclePhotos = Array.isArray(row.vehicle_photos)
+    ? row.vehicle_photos
+    : [];
+
+  const user = {
+    id: String(row.id),
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    controlNumber: row.control_number || "",
+    career: row.career || "",
+    avatar: row.avatar || "",
+    isAdmin: Boolean(row.is_admin),
+    onboardingComplete: Boolean(row.onboarding_complete),
+    vehiclePhotos,
+  };
+
+  if (row.role === "driver") {
+    user.car = {
+      model: row.car_model || "",
+      color: row.car_color || "",
+      plate: row.car_plate || "",
+      capacity: Number(row.car_capacity || 0),
+    };
+  }
+
+  return user;
+};

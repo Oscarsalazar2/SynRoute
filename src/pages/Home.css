@@ -1,0 +1,109 @@
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-section {
+  padding: var(--spacing-xl) 0;
+}
+
+.hero-section h1 {
+  font-size: 3rem;
+  letter-spacing: -1px;
+  color: var(--tec-blue);
+  background: -webkit-linear-gradient(45deg, var(--tec-blue), var(--tec-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: var(--spacing-sm);
+}
+
+[data-theme='dark'] .hero-section h1 {
+  background: -webkit-linear-gradient(45deg, #fff, var(--tec-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.search-bar-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 8px 8px 8px 24px;
+  border-radius: 100px;
+  display: flex;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+[data-theme='dark'] .search-bar-wrapper {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.search-icon {
+  color: var(--text-secondary);
+  margin-right: 12px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.filter-btn {
+  border-radius: 100px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mb-md { margin-bottom: var(--spacing-md); }
+.mt-md { margin-top: var(--spacing-md); }
+
+.feed-header h2 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.results-count {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.empty-state {
+  padding: 60px 20px;
+}
+
+@media (max-width: 768px) {
+  .hero-section h1 {
+    font-size: 2rem;
+  }
+  .search-bar-wrapper {
+    flex-direction: column;
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+  }
+  .search-input {
+    width: 100%;
+    margin: var(--spacing-sm) 0;
+    text-align: center;
+  }
+  .filter-btn {
+    width: 100%;
+  }
+  .search-icon {
+    display: none;
+  }
+}
