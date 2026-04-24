@@ -22,9 +22,11 @@ const Navbar = ({
   isDarkMode,
   user,
   isAdminView,
+  effectiveRole,
+  isDriverPassengerMode,
   onToggleAdminView,
   onSwitchToUserView,
-  onSwitchToPassenger,
+  onToggleDriverPassengerMode,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -47,7 +49,7 @@ const Navbar = ({
   }, []);
 
   const notifications =
-    user?.role === "driver"
+    effectiveRole === "driver"
       ? mockDriverNotifications
       : mockPassengerNotifications;
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -69,7 +71,7 @@ const Navbar = ({
             </Link>
           ) : (
             <>
-              {user?.role === "driver" ? (
+              {effectiveRole === "driver" ? (
                 <Link to="/publicar" className="btn btn-primary">
                   <MapPin size={18} /> Programar Ruta
                 </Link>
@@ -181,13 +183,23 @@ const Navbar = ({
                     type="button"
                     className="user-dropdown-item user-dropdown-button"
                     role="menuitem"
-                    onClick={async () => {
+                    onClick={() => {
                       if (onSwitchToUserView) onSwitchToUserView();
-                      if (onSwitchToPassenger) await onSwitchToPassenger();
+                      if (onToggleDriverPassengerMode) {
+                        onToggleDriverPassengerMode();
+                      }
                       setShowUserMenu(false);
                     }}
                   >
-                    <User size={16} /> Cambiar a usuario
+                    {isDriverPassengerMode ? (
+                      <>
+                        <Car size={16} /> Volver a modo conductor
+                      </>
+                    ) : (
+                      <>
+                        <User size={16} /> Cambiar a modo usuario
+                      </>
+                    )}
                   </button>
                 )}
                 <Link

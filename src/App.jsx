@@ -33,6 +33,7 @@ function App() {
   // Auth state (Simulation) - null if not logged in, object {role: '...'} if logged in
   const [user, setUser] = useState(null);
   const [isAdminView, setIsAdminView] = useState(false);
+  const [isDriverPassengerMode, setIsDriverPassengerMode] = useState(false);
 
   useEffect(() => {
     // Check initial system preference or localStorage
@@ -67,6 +68,7 @@ function App() {
       );
       setUser({ ...baseUser, isAdmin, onboardingComplete: true });
       setIsAdminView(false);
+      setIsDriverPassengerMode(false);
       return;
     }
 
@@ -85,6 +87,7 @@ function App() {
             : Boolean(payload.user.onboardingComplete),
       });
       setIsAdminView(false);
+      setIsDriverPassengerMode(false);
       return;
     }
 
@@ -107,11 +110,13 @@ function App() {
       onboardingComplete: !isRegisterFlow,
     });
     setIsAdminView(false);
+    setIsDriverPassengerMode(false);
   };
 
   const handleLogout = () => {
     setUser(null);
     setIsAdminView(false);
+    setIsDriverPassengerMode(false);
   };
 
   const handleProfileUpdate = async (updatedUser) => {
@@ -181,39 +186,14 @@ function App() {
     setIsAdminView(false);
   };
 
-  const handleSwitchToPassenger = async () => {
-    let nextLocalUser = null;
-
-    setUser((prev) => {
-      if (!prev || prev.role !== "driver") return prev;
-      nextLocalUser = { ...prev, role: "passenger" };
-      return nextLocalUser;
-    });
-
-    if (!nextLocalUser?.id) return;
-
+  const toggleDriverPassengerMode = () => {
+    if (user?.role !== "driver") return;
     setIsAdminView(false);
-
-    try {
-      const persistedUser = await updateUser(nextLocalUser.id, {
-        name: nextLocalUser.name,
-        email: nextLocalUser.email,
-        role: "passenger",
-        isAdmin: nextLocalUser.isAdmin,
-        avatar: nextLocalUser.avatar,
-        controlNumber: nextLocalUser.controlNumber,
-        career: nextLocalUser.career,
-      });
-
-      setUser((prev) => ({
-        ...prev,
-        ...persistedUser,
-        isAdmin: prev?.isAdmin || persistedUser.isAdmin,
-      }));
-    } catch (error) {
-      console.error("No se pudo cambiar a pasajero:", error);
-    }
+    setIsDriverPassengerMode((prev) => !prev);
   };
+
+  const effectiveRole =
+    user?.role === "driver" && isDriverPassengerMode ? "passenger" : user?.role;
 
   return (
     <Router>
@@ -247,9 +227,11 @@ function App() {
               toggleDarkMode={toggleDarkMode}
               isDarkMode={isDarkMode}
               isAdminView={isAdminView}
+              effectiveRole={effectiveRole}
+              isDriverPassengerMode={isDriverPassengerMode}
               onToggleAdminView={toggleAdminView}
               onSwitchToUserView={switchToUserView}
-              onSwitchToPassenger={handleSwitchToPassenger}
+              onToggleDriverPassengerMode={toggleDriverPassengerMode}
             />
             <main className="container pb-lg">
               <Routes>
@@ -259,7 +241,7 @@ function App() {
                     user.onboardingComplete ? (
                       user.isAdmin && isAdminView ? (
                         <Navigate to="/admin" replace />
-                      ) : user.role === "driver" ? (
+                      ) : effectiveRole === "driver" ? (
                         <DriverDashboard />
                       ) : (
                         <Home />
@@ -272,7 +254,7 @@ function App() {
                 <Route
                   path="/publicar"
                   element={
-                    user.onboardingComplete && user.role === "driver" ? (
+                    user.onboardingComplete && effectiveRole === "driver" ? (
                       <PublishRide />
                     ) : (
                       <Navigate to="/" replace />

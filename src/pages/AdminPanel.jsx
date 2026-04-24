@@ -30,6 +30,18 @@ const AdminPanel = () => {
   const [requestSearch, setRequestSearch] = useState("");
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [usersError, setUsersError] = useState("");
+  const [previewPhoto, setPreviewPhoto] = useState(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setPreviewPhoto(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -296,7 +308,7 @@ const AdminPanel = () => {
             </form>
           )}
 
-          <div className="admin-list admin-list-scroll">
+          <div className="admin-list admin-list-scroll admin-users-scroll">
             {isLoadingUsers && (
               <p className="admin-empty-state">Cargando usuarios...</p>
             )}
@@ -320,12 +332,24 @@ const AdminPanel = () => {
                           </span>
                           <div className="admin-vehicle-photos-grid">
                             {account.vehiclePhotos.map((photo) => (
-                              <img
+                              <button
                                 key={photo}
-                                src={photo}
-                                alt={`Foto del auto de ${account.name}`}
-                                className="admin-vehicle-photo-thumb"
-                              />
+                                type="button"
+                                className="admin-vehicle-photo-btn"
+                                onClick={() =>
+                                  setPreviewPhoto({
+                                    url: photo,
+                                    ownerName: account.name,
+                                  })
+                                }
+                                title="Ver foto en grande"
+                              >
+                                <img
+                                  src={photo}
+                                  alt={`Foto del auto de ${account.name}`}
+                                  className="admin-vehicle-photo-thumb"
+                                />
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -429,6 +453,31 @@ const AdminPanel = () => {
           </div>
         </article>
       </div>
+
+      {previewPhoto && (
+        <div
+          className="admin-photo-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Vista previa de foto del auto"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <button
+            type="button"
+            className="admin-photo-modal-close"
+            title="Cerrar vista previa"
+            onClick={() => setPreviewPhoto(null)}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={previewPhoto.url}
+            alt={`Foto del auto de ${previewPhoto.ownerName}`}
+            className="admin-photo-modal-image"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </section>
   );
 };

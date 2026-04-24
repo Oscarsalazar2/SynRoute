@@ -118,7 +118,9 @@ app.post("/api/auth/register", async (req, res) => {
     const name = (req.body?.name || "").trim();
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password || "";
-    const role = req.body?.role === "driver" ? "driver" : "passenger";
+    const role = String(req.body?.role || "")
+      .trim()
+      .toLowerCase();
 
     if (!name || !email || !password) {
       return res
@@ -130,6 +132,13 @@ app.post("/api/auth/register", async (req, res) => {
       return res
         .status(400)
         .json({ message: "Solo se permite @matamoros.tecnm.mx" });
+    }
+
+    if (role !== "passenger" && role !== "driver") {
+      return res.status(400).json({
+        message:
+          "Debes seleccionar un rol válido para registrarte: passenger o driver.",
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, PASSWORD_SALT_ROUNDS);
@@ -144,14 +153,15 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     const inserted = await pool.query(
-      `INSERT INTO users (name, email, password, role, avatar, is_admin, onboarding_complete)
-       VALUES ($1, $2, $3, $4, $5, FALSE, FALSE)
+      `INSERT INTO users (name, email, password, role, has_been_driver, avatar, is_admin, onboarding_complete)
+       VALUES ($1, $2, $3, $4, $5, $6, FALSE, FALSE)
        RETURNING *`,
       [
         name,
         email,
         passwordHash,
         role,
+        role === "driver",
         `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
       ],
     );
@@ -210,6 +220,10 @@ app.put("/api/users/:id", async (req, res) => {
       name: (req.body?.name || current.name).trim(),
       email,
       role,
+      hasBeenDriver:
+        role === "driver" ||
+        Boolean(current.has_been_driver) ||
+        current.role === "driver",
       isAdmin:
         typeof req.body?.isAdmin === "boolean"
           ? req.body.isAdmin
@@ -229,13 +243,14 @@ app.put("/api/users/:id", async (req, res) => {
 
     const updated = await pool.query(
       `UPDATE users
-       SET name = $1, email = $2, role = $3, is_admin = $4, avatar = $5, onboarding_complete = $6, control_number = $7, career = $8
-       WHERE id = $9
+       SET name = $1, email = $2, role = $3, has_been_driver = $4, is_admin = $5, avatar = $6, onboarding_complete = $7, control_number = $8, career = $9
+       WHERE id = $10
        RETURNING *`,
       [
         next.name,
         next.email,
         next.role,
+        next.hasBeenDriver,
         next.isAdmin,
         next.avatar,
         next.onboardingComplete,

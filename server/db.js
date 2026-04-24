@@ -18,6 +18,7 @@ export const initDb = async () => {
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('passenger', 'driver')),
+      has_been_driver BOOLEAN NOT NULL DEFAULT FALSE,
       control_number TEXT DEFAULT '',
       career TEXT DEFAULT '',
       avatar TEXT DEFAULT '',
@@ -31,6 +32,17 @@ export const initDb = async () => {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS has_been_driver BOOLEAN NOT NULL DEFAULT FALSE;
+  `);
+
+  await pool.query(`
+    UPDATE users
+    SET has_been_driver = TRUE
+    WHERE role = 'driver' AND has_been_driver = FALSE;
+  `);
 };
 
 export const mapUserRow = (row) => {
@@ -39,6 +51,15 @@ export const mapUserRow = (row) => {
   const vehiclePhotos = Array.isArray(row.vehicle_photos)
     ? row.vehicle_photos
     : [];
+
+  const hasDriverData =
+    vehiclePhotos.length > 0 ||
+    Boolean((row.car_model || "").trim()) ||
+    Boolean((row.car_color || "").trim()) ||
+    Boolean((row.car_plate || "").trim()) ||
+    Number(row.car_capacity || 0) > 0;
+
+  const hasBeenDriver = Boolean(row.has_been_driver);
 
   const user = {
     id: String(row.id),
@@ -50,6 +71,7 @@ export const mapUserRow = (row) => {
     avatar: row.avatar || "",
     isAdmin: Boolean(row.is_admin),
     onboardingComplete: Boolean(row.onboarding_complete),
+    canSwitchToDriver: row.role === "driver" || hasBeenDriver || hasDriverData,
     vehiclePhotos,
   };
 
