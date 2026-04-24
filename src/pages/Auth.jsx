@@ -9,7 +9,8 @@ const Auth = ({ type, onLogin }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const allowedDomain = "@matamoros.tecnm.mx";
-  const roleFromQuery = searchParams.get("role") === "driver" ? "driver" : "passenger";
+  const roleFromQuery =
+    searchParams.get("role") === "driver" ? "driver" : "passenger";
 
   const [formData, setFormData] = useState({
     name: "",

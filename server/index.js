@@ -210,7 +210,10 @@ app.put("/api/users/:id", async (req, res) => {
       name: (req.body?.name || current.name).trim(),
       email,
       role,
-      isAdmin: typeof req.body?.isAdmin === "boolean" ? req.body.isAdmin : Boolean(current.is_admin),
+      isAdmin:
+        typeof req.body?.isAdmin === "boolean"
+          ? req.body.isAdmin
+          : Boolean(current.is_admin),
       avatar: (req.body?.avatar ?? current.avatar ?? "").trim(),
       onboardingComplete:
         typeof req.body?.onboardingComplete === "boolean"

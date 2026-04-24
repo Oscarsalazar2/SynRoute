@@ -15,7 +15,7 @@
   opacity: 0.15;
 }
 
-[data-theme='dark'] .bg-blob {
+[data-theme="dark"] .bg-blob {
   opacity: 0.2;
 }
 
@@ -85,7 +85,7 @@
   display: inline-block;
 }
 
-[data-theme='dark'] .glass-badge {
+[data-theme="dark"] .glass-badge {
   color: var(--tec-accent);
 }
 
@@ -98,12 +98,16 @@
 
 .hero-title span {
   color: var(--tec-blue);
-  background: -webkit-linear-gradient(45deg, var(--tec-blue), var(--tec-accent));
+  background: -webkit-linear-gradient(
+    45deg,
+    var(--tec-blue),
+    var(--tec-accent)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-[data-theme='dark'] .hero-title span {
+[data-theme="dark"] .hero-title span {
   background: -webkit-linear-gradient(45deg, #fff, var(--tec-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -157,11 +161,15 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.mb-sm { margin-bottom: var(--spacing-sm); }
-.inline-block { display: inline-block; }
+.mb-sm {
+  margin-bottom: var(--spacing-sm);
+}
+.inline-block {
+  display: inline-block;
+}
 
 @media (max-width: 900px) {
   .features-grid {

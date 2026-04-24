@@ -335,7 +335,9 @@ const AdminPanel = () => {
                     <span className="admin-pill">
                       {account.role === "driver" ? "Conductor" : "Pasajero"}
                     </span>
-                    {account.isAdmin && <span className="admin-pill ok">Admin</span>}
+                    {account.isAdmin && (
+                      <span className="admin-pill ok">Admin</span>
+                    )}
                     <button
                       type="button"
                       className="admin-icon-btn"
