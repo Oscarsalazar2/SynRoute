@@ -43,6 +43,39 @@ export const initDb = async () => {
     SET has_been_driver = TRUE
     WHERE role = 'driver' AND has_been_driver = FALSE;
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rides (
+      id BIGSERIAL PRIMARY KEY,
+      driver_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      origin_name TEXT NOT NULL,
+      origin_lat DOUBLE PRECISION NOT NULL,
+      origin_lng DOUBLE PRECISION NOT NULL,
+      destination_name TEXT NOT NULL,
+      destination_lat DOUBLE PRECISION NOT NULL,
+      destination_lng DOUBLE PRECISION NOT NULL,
+      days JSONB NOT NULL DEFAULT '[]'::jsonb,
+      time_text TEXT NOT NULL,
+      total_seats INTEGER NOT NULL CHECK (total_seats > 0),
+      available_seats INTEGER NOT NULL CHECK (available_seats >= 0),
+      price INTEGER NOT NULL CHECK (price >= 0),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'full', 'completed', 'cancelled')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ride_requests (
+      id BIGSERIAL PRIMARY KEY,
+      ride_id BIGINT NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
+      passenger_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      message TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (ride_id, passenger_id)
+    );
+  `);
 };
 
 export const mapUserRow = (row) => {
@@ -85,4 +118,51 @@ export const mapUserRow = (row) => {
   }
 
   return user;
+};
+
+export const mapRideRow = (row) => {
+  if (!row) return null;
+
+  return {
+    id: String(row.id),
+    driverId: String(row.driver_id),
+    driverName: row.driver_name || "",
+    driverAvatar: row.driver_avatar || "",
+    carModel: row.driver_car_model || "",
+    plate: row.driver_car_plate || "",
+    from: {
+      name: row.origin_name,
+      lat: Number(row.origin_lat),
+      lng: Number(row.origin_lng),
+    },
+    to: {
+      name: row.destination_name,
+      lat: Number(row.destination_lat),
+      lng: Number(row.destination_lng),
+    },
+    days: Array.isArray(row.days) ? row.days : [],
+    time: row.time_text,
+    availableSeats: Number(row.available_seats || 0),
+    totalSeats: Number(row.total_seats || 0),
+    price: Number(row.price || 0),
+    status: row.status,
+  };
+};
+
+export const mapRideRequestRow = (row) => {
+  if (!row) return null;
+
+  return {
+    id: String(row.id),
+    rideId: String(row.ride_id),
+    passenger: {
+      id: String(row.passenger_id),
+      name: row.passenger_name || "",
+      avatar: row.passenger_avatar || "",
+      isVerified: true,
+      rating: 5,
+    },
+    status: row.status,
+    message: row.message || "",
+  };
 };

@@ -69,3 +69,67 @@ export const getCloudinarySignature = async (folder) => {
     body: JSON.stringify({ folder }),
   });
 };
+
+export const getRides = async ({ role, userId } = {}) => {
+  const search = new URLSearchParams();
+  if (role) search.set("role", role);
+  if (userId) search.set("userId", String(userId));
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const data = await request(`/api/rides${suffix}`);
+  return data.rides || [];
+};
+
+export const createRide = async (payload) => {
+  const data = await request("/api/rides", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return data.ride;
+};
+
+export const updateRide = async (id, payload) => {
+  const data = await request(`/api/rides/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return data.ride;
+};
+
+export const deleteRide = async (id, driverId) => {
+  const suffix = driverId
+    ? `?driverId=${encodeURIComponent(String(driverId))}`
+    : "";
+  await request(`/api/rides/${id}${suffix}`, {
+    method: "DELETE",
+  });
+};
+
+export const finishRide = async (id, driverId) => {
+  await request(`/api/rides/${id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ driverId }),
+  });
+};
+
+export const getRideRequests = async (driverId) => {
+  const data = await request(
+    `/api/ride-requests?driverId=${encodeURIComponent(String(driverId))}`,
+  );
+  return data.requests || [];
+};
+
+export const createRideRequest = async ({ rideId, passengerId, message }) => {
+  const data = await request("/api/ride-requests", {
+    method: "POST",
+    body: JSON.stringify({ rideId, passengerId, message }),
+  });
+  return data.request;
+};
+
+export const updateRideRequest = async (id, { driverId, status }) => {
+  await request(`/api/ride-requests/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ driverId, status }),
+  });
+};

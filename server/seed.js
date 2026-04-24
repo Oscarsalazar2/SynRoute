@@ -5,7 +5,9 @@ const PASSWORD_SALT_ROUNDS = 10;
 
 await initDb();
 
-await pool.query("TRUNCATE TABLE users RESTART IDENTITY");
+await pool.query(
+  "TRUNCATE TABLE ride_requests, rides, users RESTART IDENTITY CASCADE",
+);
 
 const users = [
   {
@@ -99,11 +101,89 @@ for (const user of users) {
   );
 }
 
+const locations = {
+  tec: { name: "TecNM Campus Matamoros", lat: 25.8451, lng: -97.5251 },
+  plaza: { name: "Plaza Fiesta", lat: 25.8643, lng: -97.5028 },
+  parque: { name: "Parque Olimpico", lat: 25.8821, lng: -97.5015 },
+  soriana: { name: "Soriana Laguneta", lat: 25.8655, lng: -97.5342 },
+};
+
+const driversByEmail = await pool.query(
+  "SELECT id, email, name, avatar, car_model, car_plate FROM users WHERE role = 'driver'",
+);
+const driver = driversByEmail.rows[0];
+
+const passengerRows = await pool.query(
+  "SELECT id FROM users WHERE role = 'passenger' AND is_admin = FALSE ORDER BY id ASC",
+);
+const passenger = passengerRows.rows[0];
+
+if (driver) {
+  const rideInsert = await pool.query(
+    `INSERT INTO rides (
+      driver_id,
+      origin_name,
+      origin_lat,
+      origin_lng,
+      destination_name,
+      destination_lat,
+      destination_lng,
+      days,
+      time_text,
+      total_seats,
+      available_seats,
+      price,
+      status
+    ) VALUES
+      ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, 'active'),
+      ($1, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $21, $22, $23, 'active')
+    RETURNING id`,
+    [
+      driver.id,
+      locations.plaza.name,
+      locations.plaza.lat,
+      locations.plaza.lng,
+      locations.tec.name,
+      locations.tec.lat,
+      locations.tec.lng,
+      JSON.stringify(["Lu", "Mi", "Vi"]),
+      "07:30",
+      4,
+      3,
+      35,
+      locations.tec.name,
+      locations.tec.lat,
+      locations.tec.lng,
+      locations.parque.name,
+      locations.parque.lat,
+      locations.parque.lng,
+      JSON.stringify(["Ma", "Ju"]),
+      "14:15",
+      3,
+      2,
+      40,
+    ],
+  );
+
+  if (passenger && rideInsert.rows[0]) {
+    await pool.query(
+      `INSERT INTO ride_requests (ride_id, passenger_id, message, status)
+       VALUES ($1, $2, $3, 'pending')`,
+      [
+        rideInsert.rows[0].id,
+        passenger.id,
+        "Hola, llevo mochila pequena. Gracias!",
+      ],
+    );
+  }
+}
+
 const countResult = await pool.query(
   "SELECT COUNT(*)::int AS total FROM users",
 );
+const ridesCount = await pool.query("SELECT COUNT(*)::int AS total FROM rides");
 console.log(
-  `Seed completado. Usuarios insertados: ${countResult.rows[0].total}`,
+  `Seed completado. Usuarios: ${countResult.rows[0].total}. Viajes: ${ridesCount.rows[0].total}`,
 );
 
 await pool.end();

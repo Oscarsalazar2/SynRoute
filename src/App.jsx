@@ -18,6 +18,19 @@ import { updateOnboardingProfile, updateUser } from "./services/api";
 import { currentUser, currentDriver } from "./mockData";
 
 const ADMIN_EMAILS = ["admin@matamoros.tecnm.mx"];
+const SESSION_STORAGE_KEY = "riofrio.session";
+
+const loadSavedSession = () => {
+  try {
+    const rawSession = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!rawSession) return null;
+
+    const parsedSession = JSON.parse(rawSession);
+    return parsedSession?.user ? parsedSession : null;
+  } catch {
+    return null;
+  }
+};
 
 const LogoutRoute = ({ onLogout }) => {
   useEffect(() => {
@@ -31,9 +44,13 @@ function App() {
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(false);
   // Auth state (Simulation) - null if not logged in, object {role: '...'} if logged in
-  const [user, setUser] = useState(null);
-  const [isAdminView, setIsAdminView] = useState(false);
-  const [isDriverPassengerMode, setIsDriverPassengerMode] = useState(false);
+  const [user, setUser] = useState(() => loadSavedSession()?.user ?? null);
+  const [isAdminView, setIsAdminView] = useState(
+    () => loadSavedSession()?.isAdminView ?? false,
+  );
+  const [isDriverPassengerMode, setIsDriverPassengerMode] = useState(
+    () => loadSavedSession()?.isDriverPassengerMode ?? false,
+  );
 
   useEffect(() => {
     // Check initial system preference or localStorage
@@ -50,6 +67,22 @@ function App() {
       document.documentElement.setAttribute("data-theme", "light");
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({
+        user,
+        isAdminView,
+        isDriverPassengerMode,
+      }),
+    );
+  }, [user, isAdminView, isDriverPassengerMode]);
 
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
@@ -117,6 +150,7 @@ function App() {
     setUser(null);
     setIsAdminView(false);
     setIsDriverPassengerMode(false);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
   };
 
   const handleProfileUpdate = async (updatedUser) => {
@@ -242,9 +276,9 @@ function App() {
                       user.isAdmin && isAdminView ? (
                         <Navigate to="/admin" replace />
                       ) : effectiveRole === "driver" ? (
-                        <DriverDashboard />
+                        <DriverDashboard user={user} />
                       ) : (
-                        <Home />
+                        <Home user={user} />
                       )
                     ) : (
                       <Navigate to="/completar-perfil" replace />
@@ -255,7 +289,7 @@ function App() {
                   path="/publicar"
                   element={
                     user.onboardingComplete && effectiveRole === "driver" ? (
-                      <PublishRide />
+                      <PublishRide user={user} />
                     ) : (
                       <Navigate to="/" replace />
                     )
