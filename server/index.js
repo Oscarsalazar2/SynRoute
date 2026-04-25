@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { v2 as cloudinary } from "cloudinary";
 import {
   initDb,
+  mapNotificationRow,
   mapRideRequestRow,
   mapRideRow,
   mapUserRow,
@@ -31,6 +32,21 @@ const normalizeEmail = (email = "") => email.trim().toLowerCase();
 const toInt = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
+};
+
+const createNotification = async ({
+  userId,
+  type = "info",
+  text,
+  meta = {},
+}) => {
+  if (!userId || !text) return;
+
+  await pool.query(
+    `INSERT INTO notifications (user_id, type, text, meta)
+     VALUES ($1, $2, $3, $4::jsonb)`,
+    [userId, type, text, JSON.stringify(meta)],
+  );
 };
 
 const fetchRideById = async (id) => {
@@ -584,32 +600,128 @@ app.delete("/api/rides/:id", async (req, res) => {
 });
 
 app.post("/api/rides/:id/finish", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const rideId = toInt(req.params.id);
     const driverId = toInt(req.body?.driverId);
+    const ratingsPayload = Array.isArray(req.body?.ratings)
+      ? req.body.ratings
+      : [];
 
-    const current = await pool.query("SELECT * FROM rides WHERE id = $1", [
-      rideId,
-    ]);
+    await client.query("BEGIN");
+
+    const current = await client.query(
+      "SELECT * FROM rides WHERE id = $1 FOR UPDATE",
+      [rideId],
+    );
     const ride = current.rows[0];
     if (!ride) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Viaje no encontrado." });
     }
     if (driverId <= 0 || Number(ride.driver_id) !== driverId) {
+      await client.query("ROLLBACK");
       return res
         .status(403)
         .json({ message: "No tienes permisos para finalizar este viaje." });
     }
+    if (ride.status === "completed") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Este viaje ya fue finalizado." });
+    }
+    if (ride.status !== "active" && ride.status !== "full") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Solo puedes finalizar viajes activos o llenos.",
+      });
+    }
 
-    await pool.query(
+    const acceptedResult = await client.query(
+      `SELECT passenger_id
+       FROM ride_requests
+       WHERE ride_id = $1 AND status = 'accepted'
+       ORDER BY passenger_id
+       FOR UPDATE`,
+      [rideId],
+    );
+
+    const acceptedPassengerIds = acceptedResult.rows.map((row) =>
+      String(row.passenger_id),
+    );
+
+    const ratingByPassengerId = new Map(
+      ratingsPayload.map((item) => [
+        String(toInt(item?.passengerId)),
+        toInt(item?.rating),
+      ]),
+    );
+
+    const hasInvalidRating = [...ratingByPassengerId.values()].some(
+      (value) => value < 1 || value > 5,
+    );
+    if (hasInvalidRating) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Cada calificación debe estar entre 1 y 5 estrellas.",
+      });
+    }
+
+    if (acceptedPassengerIds.length > 0) {
+      const hasMissingRatings = acceptedPassengerIds.some(
+        (passengerId) => !ratingByPassengerId.has(passengerId),
+      );
+      if (hasMissingRatings) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message:
+            "Debes calificar a todos los pasajeros aceptados antes de finalizar el viaje.",
+        });
+      }
+
+      for (const passengerId of acceptedPassengerIds) {
+        const ratingValue = ratingByPassengerId.get(passengerId);
+
+        await client.query(
+          `INSERT INTO ride_ratings (ride_id, passenger_id, driver_id, rating)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (ride_id, passenger_id, driver_id)
+           DO UPDATE SET rating = EXCLUDED.rating, updated_at = NOW()`,
+          [rideId, Number(passengerId), driverId, ratingValue],
+        );
+
+        await client.query(
+          `INSERT INTO wallet_transactions (ride_id, driver_id, passenger_id, kind, amount)
+           VALUES ($1, $2, $3, 'ride_income', $4)
+           ON CONFLICT (ride_id, passenger_id, kind)
+           DO NOTHING`,
+          [rideId, driverId, Number(passengerId), Number(ride.price || 0)],
+        );
+      }
+    }
+
+    await client.query(
       "UPDATE rides SET status = 'completed', available_seats = 0, updated_at = NOW() WHERE id = $1",
       [rideId],
     );
 
-    return res.json({ ok: true });
+    await client.query("COMMIT");
+
+    return res.json({
+      ok: true,
+      processedPassengers: acceptedPassengerIds.length,
+      incomePerPassenger: Number(ride.price || 0),
+    });
   } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Ignorado: la transacción ya no está activa.
+    }
     console.error(error);
     return res.status(500).json({ message: "No se pudo finalizar el viaje." });
+  } finally {
+    client.release();
   }
 });
 
@@ -621,10 +733,16 @@ app.get("/api/ride-requests", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT rr.*, u.name AS passenger_name, u.avatar AS passenger_avatar
+      `SELECT rr.*, u.name AS passenger_name, u.avatar AS passenger_avatar,
+              COALESCE(pr.avg_rating, 5) AS passenger_rating
        FROM ride_requests rr
        JOIN rides r ON r.id = rr.ride_id
        JOIN users u ON u.id = rr.passenger_id
+       LEFT JOIN (
+         SELECT passenger_id, ROUND(AVG(rating)::numeric, 1) AS avg_rating
+         FROM ride_ratings
+         GROUP BY passenger_id
+       ) pr ON pr.passenger_id = rr.passenger_id
        WHERE r.driver_id = $1
        ORDER BY rr.created_at DESC`,
       [driverId],
@@ -639,7 +757,101 @@ app.get("/api/ride-requests", async (req, res) => {
   }
 });
 
+app.get("/api/drivers/:id/summary", async (req, res) => {
+  try {
+    const driverId = toInt(req.params.id);
+    if (driverId <= 0) {
+      return res.status(400).json({ message: "driverId inválido." });
+    }
+
+    const [balanceResult, weeklyResult, completedResult] = await Promise.all([
+      pool.query(
+        `SELECT COALESCE(SUM(amount), 0) AS balance
+         FROM wallet_transactions
+         WHERE driver_id = $1`,
+        [driverId],
+      ),
+      pool.query(
+        `SELECT COALESCE(SUM(amount), 0) AS weekly_income
+         FROM wallet_transactions
+         WHERE driver_id = $1
+           AND created_at >= NOW() - INTERVAL '7 days'`,
+        [driverId],
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS completed_rides
+         FROM rides
+         WHERE driver_id = $1 AND status = 'completed'`,
+        [driverId],
+      ),
+    ]);
+
+    return res.json({
+      summary: {
+        balance: Number(balanceResult.rows[0]?.balance || 0),
+        weeklyIncome: Number(weeklyResult.rows[0]?.weekly_income || 0),
+        completedRides: Number(completedResult.rows[0]?.completed_rides || 0),
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "No se pudo obtener el resumen del conductor." });
+  }
+});
+
+app.get("/api/notifications", async (req, res) => {
+  try {
+    const userId = toInt(req.query.userId);
+    if (userId <= 0) {
+      return res.status(400).json({ message: "userId es obligatorio." });
+    }
+
+    const result = await pool.query(
+      `SELECT *
+       FROM notifications
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [userId],
+    );
+
+    return res.json({ notifications: result.rows.map(mapNotificationRow) });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "No se pudieron obtener notificaciones." });
+  }
+});
+
+app.put("/api/notifications/read-all", async (req, res) => {
+  try {
+    const userId = toInt(req.body?.userId);
+    if (userId <= 0) {
+      return res.status(400).json({ message: "userId es obligatorio." });
+    }
+
+    await pool.query(
+      `UPDATE notifications
+       SET is_read = TRUE
+       WHERE user_id = $1 AND is_read = FALSE`,
+      [userId],
+    );
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "No se pudieron actualizar notificaciones." });
+  }
+});
+
 app.post("/api/ride-requests", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const rideId = toInt(req.body?.rideId);
     const passengerId = toInt(req.body?.passengerId);
@@ -651,26 +863,55 @@ app.post("/api/ride-requests", async (req, res) => {
         .json({ message: "rideId y passengerId son obligatorios." });
     }
 
-    const rideResult = await pool.query("SELECT * FROM rides WHERE id = $1", [
-      rideId,
+    await client.query("BEGIN");
+
+    await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [
+      passengerId,
     ]);
+
+    const activeRequestResult = await client.query(
+      `SELECT rr.id
+       FROM ride_requests rr
+       JOIN rides r ON r.id = rr.ride_id
+       WHERE rr.passenger_id = $1
+         AND rr.ride_id <> $2
+         AND rr.status IN ('pending', 'accepted')
+         AND r.status IN ('active', 'full')
+       LIMIT 1`,
+      [passengerId, rideId],
+    );
+
+    if (activeRequestResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message:
+          "Ya tienes una solicitud activa en otro viaje. Solo puedes pedir uno a la vez.",
+      });
+    }
+
+    const rideResult = await client.query(
+      "SELECT * FROM rides WHERE id = $1 FOR UPDATE",
+      [rideId],
+    );
     const ride = rideResult.rows[0];
     if (
       !ride ||
       ride.status !== "active" ||
       Number(ride.available_seats) <= 0
     ) {
+      await client.query("ROLLBACK");
       return res
         .status(400)
         .json({ message: "El viaje no está disponible para solicitudes." });
     }
     if (Number(ride.driver_id) === passengerId) {
+      await client.query("ROLLBACK");
       return res
         .status(400)
         .json({ message: "No puedes solicitar un viaje propio." });
     }
 
-    const inserted = await pool.query(
+    const inserted = await client.query(
       `INSERT INTO ride_requests (ride_id, passenger_id, message)
        VALUES ($1, $2, $3)
        ON CONFLICT (ride_id, passenger_id)
@@ -679,11 +920,23 @@ app.post("/api/ride-requests", async (req, res) => {
       [rideId, passengerId, message],
     );
 
+    await client.query("COMMIT");
+
     const passengerResult = await pool.query(
       "SELECT name, avatar FROM users WHERE id = $1",
       [passengerId],
     );
     const passenger = passengerResult.rows[0] || {};
+
+    await createNotification({
+      userId: Number(ride.driver_id),
+      type: "ride_request",
+      text: "Tienes una nueva solicitud para tu viaje.",
+      meta: {
+        rideId: String(ride.id),
+        passengerId: String(passengerId),
+      },
+    });
 
     return res.status(201).json({
       request: mapRideRequestRow({
@@ -693,53 +946,75 @@ app.post("/api/ride-requests", async (req, res) => {
       }),
     });
   } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Ignorado: la transacción ya no está activa.
+    }
     console.error(error);
     return res.status(500).json({ message: "No se pudo enviar la solicitud." });
+  } finally {
+    client.release();
   }
 });
 
 app.put("/api/ride-requests/:id", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const requestId = toInt(req.params.id);
     const driverId = toInt(req.body?.driverId);
     const status = req.body?.status === "accepted" ? "accepted" : "rejected";
 
-    const current = await pool.query(
-      `SELECT rr.*, r.driver_id, r.available_seats, r.total_seats
+    await client.query("BEGIN");
+
+    const current = await client.query(
+      `SELECT rr.*, r.driver_id, r.available_seats, r.total_seats, r.status AS ride_status, r.origin_name, r.destination_name
        FROM ride_requests rr
        JOIN rides r ON r.id = rr.ride_id
-       WHERE rr.id = $1`,
+       WHERE rr.id = $1
+       FOR UPDATE`,
       [requestId],
     );
     const row = current.rows[0];
     if (!row) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Solicitud no encontrada." });
     }
     if (driverId <= 0 || Number(row.driver_id) !== driverId) {
+      await client.query("ROLLBACK");
       return res
         .status(403)
         .json({ message: "No tienes permisos para esta solicitud." });
     }
 
-    await pool.query("UPDATE ride_requests SET status = $1 WHERE id = $2", [
-      status,
-      requestId,
-    ]);
+    if (row.ride_status !== "active" && row.ride_status !== "full") {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ message: "El viaje ya no permite cambios de solicitudes." });
+    }
 
     if (
       status === "accepted" &&
       row.status !== "accepted" &&
       Number(row.available_seats) <= 0
     ) {
+      await client.query("ROLLBACK");
       return res
         .status(400)
         .json({ message: "Ya no hay asientos disponibles en este viaje." });
     }
 
+    await client.query("UPDATE ride_requests SET status = $1 WHERE id = $2", [
+      status,
+      requestId,
+    ]);
+
     if (status === "accepted" && row.status !== "accepted") {
       const nextAvailable = Math.max(Number(row.available_seats) - 1, 0);
       const nextStatus = nextAvailable === 0 ? "full" : "active";
-      await pool.query(
+      await client.query(
         "UPDATE rides SET available_seats = $1, status = $2, updated_at = NOW() WHERE id = $3",
         [nextAvailable, nextStatus, row.ride_id],
       );
@@ -750,18 +1025,44 @@ app.put("/api/ride-requests/:id", async (req, res) => {
         Number(row.available_seats) + 1,
         Number(row.total_seats),
       );
-      await pool.query(
+      await client.query(
         "UPDATE rides SET available_seats = $1, status = 'active', updated_at = NOW() WHERE id = $2",
         [nextAvailable, row.ride_id],
       );
     }
 
+    await client.query("COMMIT");
+
+    const ridePath = `${row.origin_name} -> ${row.destination_name}`;
+    if (status === "accepted") {
+      await createNotification({
+        userId: Number(row.passenger_id),
+        type: "request_accepted",
+        text: `Tu solicitud fue aceptada para el viaje ${ridePath}.`,
+        meta: { rideId: String(row.ride_id), requestId: String(row.id) },
+      });
+    } else {
+      await createNotification({
+        userId: Number(row.passenger_id),
+        type: "request_rejected",
+        text: `Tu solicitud fue rechazada para el viaje ${ridePath}.`,
+        meta: { rideId: String(row.ride_id), requestId: String(row.id) },
+      });
+    }
+
     return res.json({ ok: true });
   } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Ignorado: ya no se puede revertir.
+    }
     console.error(error);
     return res
       .status(500)
       .json({ message: "No se pudo actualizar la solicitud." });
+  } finally {
+    client.release();
   }
 });
 

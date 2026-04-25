@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",
+    "serve": "node server/index.js",
     "seed": "node server/seed.js",
     "build": "vite build",
     "lint": "eslint .",

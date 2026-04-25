@@ -6,7 +6,7 @@ const PASSWORD_SALT_ROUNDS = 10;
 await initDb();
 
 await pool.query(
-  "TRUNCATE TABLE ride_requests, rides, users RESTART IDENTITY CASCADE",
+  "TRUNCATE TABLE notifications, ride_requests, rides, users RESTART IDENTITY CASCADE",
 );
 
 const users = [

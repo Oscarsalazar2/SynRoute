@@ -76,6 +76,44 @@ export const initDb = async () => {
       UNIQUE (ride_id, passenger_id)
     );
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'info',
+      text TEXT NOT NULL,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ride_ratings (
+      id BIGSERIAL PRIMARY KEY,
+      ride_id BIGINT NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
+      passenger_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      driver_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (ride_id, passenger_id, driver_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id BIGSERIAL PRIMARY KEY,
+      ride_id BIGINT NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
+      driver_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      passenger_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('ride_income')),
+      amount INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (ride_id, passenger_id, kind)
+    );
+  `);
 };
 
 export const mapUserRow = (row) => {
@@ -155,14 +193,29 @@ export const mapRideRequestRow = (row) => {
   return {
     id: String(row.id),
     rideId: String(row.ride_id),
+    routeId: String(row.ride_id),
     passenger: {
       id: String(row.passenger_id),
       name: row.passenger_name || "",
       avatar: row.passenger_avatar || "",
       isVerified: true,
-      rating: 5,
+      rating: Number(row.passenger_rating || 5),
     },
     status: row.status,
     message: row.message || "",
+  };
+};
+
+export const mapNotificationRow = (row) => {
+  if (!row) return null;
+
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    type: row.type || "info",
+    text: row.text || "",
+    isRead: Boolean(row.is_read),
+    createdAt: row.created_at,
+    meta: row.meta && typeof row.meta === "object" ? row.meta : {},
   };
 };

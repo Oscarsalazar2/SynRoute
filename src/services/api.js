@@ -105,11 +105,18 @@ export const deleteRide = async (id, driverId) => {
   });
 };
 
-export const finishRide = async (id, driverId) => {
-  await request(`/api/rides/${id}/finish`, {
+export const finishRide = async (id, driverId, ratings = []) => {
+  return request(`/api/rides/${id}/finish`, {
     method: "POST",
-    body: JSON.stringify({ driverId }),
+    body: JSON.stringify({ driverId, ratings }),
   });
+};
+
+export const getDriverSummary = async (driverId) => {
+  const data = await request(
+    `/api/drivers/${encodeURIComponent(String(driverId))}/summary`,
+  );
+  return data.summary || { balance: 0, weeklyIncome: 0, completedRides: 0 };
 };
 
 export const getRideRequests = async (driverId) => {
@@ -131,5 +138,19 @@ export const updateRideRequest = async (id, { driverId, status }) => {
   await request(`/api/ride-requests/${id}`, {
     method: "PUT",
     body: JSON.stringify({ driverId, status }),
+  });
+};
+
+export const getNotifications = async (userId) => {
+  const data = await request(
+    `/api/notifications?userId=${encodeURIComponent(String(userId))}`,
+  );
+  return data.notifications || [];
+};
+
+export const markAllNotificationsAsRead = async (userId) => {
+  await request("/api/notifications/read-all", {
+    method: "PUT",
+    body: JSON.stringify({ userId }),
   });
 };

@@ -11,10 +11,7 @@ import {
   PanelTop,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import {
-  mockPassengerNotifications,
-  mockDriverNotifications,
-} from "../mockData";
+import { getNotifications, markAllNotificationsAsRead } from "../services/api";
 import "./Navbar.css";
 
 const Navbar = ({
@@ -30,8 +27,23 @@ const Navbar = ({
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const notifRef = useRef(null);
   const userMenuRef = useRef(null);
+
+  const loadNotifications = async () => {
+    if (!user?.id) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const next = await getNotifications(user.id);
+      setNotifications(next);
+    } catch {
+      // Evitamos bloquear la UI si falla el feed de notificaciones.
+    }
+  };
 
   useEffect(() => {
     // Cerrar el dropdown si el usuario hace clic afuera de la campana
@@ -48,10 +60,31 @@ const Navbar = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const notifications =
-    effectiveRole === "driver"
-      ? mockDriverNotifications
-      : mockPassengerNotifications;
+  useEffect(() => {
+    loadNotifications();
+
+    const intervalId = window.setInterval(() => {
+      loadNotifications();
+    }, 20000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!showNotifications || !user?.id) return;
+
+    const hasUnread = notifications.some((n) => !n.isRead);
+    if (!hasUnread) return;
+
+    markAllNotificationsAsRead(user.id)
+      .then(() => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      })
+      .catch(() => {
+        // Ignorado: solo marca leidas, no bloquea UX.
+      });
+  }, [showNotifications, notifications, user?.id]);
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
@@ -103,15 +136,26 @@ const Navbar = ({
                   </span>
                 </div>
                 <div className="notif-list">
-                  {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className={`notif-item ${!n.isRead ? "unread" : ""}`}
-                    >
-                      <p className="notif-text">{n.text}</p>
-                      <span className="notif-time">{n.time}</span>
+                  {notifications.length === 0 ? (
+                    <div className="notif-item">
+                      <p className="notif-text">No tienes notificaciones.</p>
                     </div>
-                  ))}
+                  ) : (
+                    notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`notif-item ${!n.isRead ? "unread" : ""}`}
+                      >
+                        <p className="notif-text">{n.text}</p>
+                        <span className="notif-time">
+                          {new Date(n.createdAt).toLocaleString("es-MX", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

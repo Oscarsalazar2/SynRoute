@@ -17,6 +17,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   deleteRide,
   finishRide,
+  getDriverSummary,
   getRideRequests,
   getRides,
   updateRideRequest,
@@ -25,9 +26,13 @@ import "./DriverDashboard.css";
 
 const DriverDashboard = ({ user }) => {
   const navigate = useNavigate();
-  const [totalRides, setTotalRides] = useState(0);
-  const [myRoutesState, setMyRoutesState] = useState([]);
+  const [driverRides, setDriverRides] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [driverSummary, setDriverSummary] = useState({
+    balance: 0,
+    weeklyIncome: 0,
+    completedRides: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -42,11 +47,15 @@ const DriverDashboard = ({ user }) => {
   });
   const [toast, setToast] = useState(null);
 
-  const weeklyEarnings = useMemo(
+  const activeRoutes = useMemo(
     () =>
-      myRoutesState.reduce((sum, route) => sum + Number(route.price || 0), 0),
-    [myRoutesState],
+      driverRides.filter(
+        (route) => route.status === "active" || route.status === "full",
+      ),
+    [driverRides],
   );
+
+  const weeklyEarnings = Number(driverSummary.weeklyIncome || 0);
 
   const loadDashboardData = async () => {
     if (!user?.id) return;
@@ -55,15 +64,15 @@ const DriverDashboard = ({ user }) => {
       setIsLoading(true);
       setError("");
 
-      const [rides, rideRequests] = await Promise.all([
+      const [rides, rideRequests, summary] = await Promise.all([
         getRides({ role: "driver", userId: user.id }),
         getRideRequests(user.id),
+        getDriverSummary(user.id),
       ]);
 
-      setMyRoutesState(
-        rides.filter((r) => r.status === "active" || r.status === "full"),
-      );
+      setDriverRides(rides);
       setRequests(rideRequests);
+      setDriverSummary(summary);
     } catch (err) {
       setError(err.message || "No se pudo cargar el panel del conductor.");
     } finally {
@@ -108,13 +117,12 @@ const DriverDashboard = ({ user }) => {
 
   const handleFinishRide = async (route) => {
     const acceptedCount = requests.filter(
-      (req) => req.routeId === route.id && req.status === "accepted",
+      (req) => req.rideId === route.id && req.status === "accepted",
     ).length;
 
     if (acceptedCount === 0) {
       await finishRide(route.id, user.id);
       await loadDashboardData();
-      setTotalRides((prev) => prev + 1);
       setSuccessModal({
         open: true,
         title: "Viaje Finalizado",
@@ -127,9 +135,14 @@ const DriverDashboard = ({ user }) => {
   };
 
   const submitRatings = async () => {
-    await finishRide(routeToRate.id, user.id);
+    const ratingsPayload = passengersToRate.map((passenger) => ({
+      passengerId: passenger.id,
+      rating: ratings[passenger.id],
+    }));
+
+    await finishRide(routeToRate.id, user.id, ratingsPayload);
     await loadDashboardData();
-    setTotalRides((prev) => prev + 1);
+    setRatings({});
     setRouteToRate(null);
     setSuccessModal({
       open: true,
@@ -142,7 +155,7 @@ const DriverDashboard = ({ user }) => {
   const passengersToRate = routeToRate
     ? requests
         .filter(
-          (req) => req.routeId === routeToRate.id && req.status === "accepted",
+          (req) => req.rideId === routeToRate.id && req.status === "accepted",
         )
         .map((r) => r.passenger)
     : [];
@@ -167,7 +180,7 @@ const DriverDashboard = ({ user }) => {
         <section className="stats-section flex flex-col gap-md">
           <div className="stat-card glass-panel flex items-center justify-between">
             <div>
-              <p className="stat-label">Ganancias Estimadas (Semana)</p>
+              <p className="stat-label">Ganancias Reales (7 días)</p>
               <h2 className="stat-value text-success">${weeklyEarnings} MXN</h2>
             </div>
             <div className="stat-icon-wrapper bg-success-light">
@@ -177,7 +190,7 @@ const DriverDashboard = ({ user }) => {
           <div className="stat-card glass-panel flex items-center justify-between">
             <div>
               <p className="stat-label">Viajes Completados</p>
-              <h2 className="stat-value">{totalRides}</h2>
+              <h2 className="stat-value">{driverSummary.completedRides}</h2>
             </div>
             <div className="stat-icon-wrapper bg-blue-light">
               <Star size={28} className="text-blue" />
@@ -204,7 +217,7 @@ const DriverDashboard = ({ user }) => {
             </div>
           )}
 
-          {!isLoading && myRoutesState.length === 0 ? (
+          {!isLoading && activeRoutes.length === 0 ? (
             <div
               className="glass-panel text-center p-xl mb-lg"
               style={{ padding: "40px 20px" }}
@@ -215,7 +228,7 @@ const DriverDashboard = ({ user }) => {
               </p>
             </div>
           ) : (
-            myRoutesState.map((route) => (
+            activeRoutes.map((route) => (
               <div
                 key={route.id}
                 className="active-route-card glass-panel mb-lg"
@@ -292,9 +305,7 @@ const DriverDashboard = ({ user }) => {
 
           <div className="requests-feed">
             {requests.map((req) => {
-              const belongsToMe = myRoutesState.some(
-                (r) => r.id === req.routeId,
-              );
+              const belongsToMe = driverRides.some((r) => r.id === req.rideId);
               if (!belongsToMe) return null; // No mostrar peticiones de rutas que eliminaste
 
               return (
