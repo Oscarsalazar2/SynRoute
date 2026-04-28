@@ -177,9 +177,15 @@ const DriverDashboard = ({ user }) => {
             backgroundColor: "rgba(255, 193, 7, 0.08)",
           }}
         >
-          <AlertCircle size={32} className="text-warning" style={{ margin: "0 auto 12px" }} />
+          <AlertCircle
+            size={32}
+            className="text-warning"
+            style={{ margin: "0 auto 12px" }}
+          />
           <h3 style={{ marginBottom: "8px" }}>Oops, algo salió mal</h3>
-          <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)" }}>{error}</p>
+          <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)" }}>
+            {error}
+          </p>
         </div>
       )}
 

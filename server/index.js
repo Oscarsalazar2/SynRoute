@@ -794,7 +794,9 @@ app.get("/api/ride-requests/:id/messages", async (req, res) => {
     const userId = toInt(req.query.userId);
 
     if (requestId <= 0 || userId <= 0) {
-      return res.status(400).json({ message: "requestId y userId son obligatorios." });
+      return res
+        .status(400)
+        .json({ message: "requestId y userId son obligatorios." });
     }
 
     const accessResult = await pool.query(
@@ -814,7 +816,9 @@ app.get("/api/ride-requests/:id/messages", async (req, res) => {
       Number(accessRow.passenger_id) !== userId &&
       Number(accessRow.driver_id) !== userId
     ) {
-      return res.status(403).json({ message: "No tienes permisos para ver esta conversación." });
+      return res
+        .status(403)
+        .json({ message: "No tienes permisos para ver esta conversación." });
     }
 
     const result = await pool.query(
@@ -829,7 +833,9 @@ app.get("/api/ride-requests/:id/messages", async (req, res) => {
     return res.json({ messages: result.rows.map(mapRideRequestMessageRow) });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "No se pudieron obtener mensajes." });
+    return res
+      .status(500)
+      .json({ message: "No se pudieron obtener mensajes." });
   }
 });
 
@@ -840,7 +846,9 @@ app.post("/api/ride-requests/:id/messages", async (req, res) => {
     const message = String(req.body?.message || "").trim();
 
     if (requestId <= 0 || senderId <= 0 || !message) {
-      return res.status(400).json({ message: "requestId, senderId y message son obligatorios." });
+      return res
+        .status(400)
+        .json({ message: "requestId, senderId y message son obligatorios." });
     }
 
     const accessResult = await pool.query(
@@ -860,11 +868,19 @@ app.post("/api/ride-requests/:id/messages", async (req, res) => {
       Number(accessRow.passenger_id) !== senderId &&
       Number(accessRow.driver_id) !== senderId
     ) {
-      return res.status(403).json({ message: "No tienes permisos para escribir en esta conversación." });
+      return res
+        .status(403)
+        .json({
+          message: "No tienes permisos para escribir en esta conversación.",
+        });
     }
 
     if (accessRow.status !== "accepted") {
-      return res.status(400).json({ message: "Solo puedes escribir cuando el viaje ya fue aceptado." });
+      return res
+        .status(400)
+        .json({
+          message: "Solo puedes escribir cuando el viaje ya fue aceptado.",
+        });
     }
 
     const inserted = await pool.query(

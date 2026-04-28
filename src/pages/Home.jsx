@@ -35,22 +35,20 @@ const Home = ({ user }) => {
     loadHomeData();
   }, [user?.id]);
 
-  const filteredRoutes = useMemo(
-    () => {
-      const todayDayId = DAY_IDS[new Date().getDay()];
+  const filteredRoutes = useMemo(() => {
+    const todayDayId = DAY_IDS[new Date().getDay()];
 
-      return rides.filter((route) => {
-        const routeDays = Array.isArray(route.days) ? route.days : [];
-        const matchesToday = routeDays.length > 0 && routeDays.includes(todayDayId);
-        const matchesSearchTerm =
-          route.to.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          route.from.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return rides.filter((route) => {
+      const routeDays = Array.isArray(route.days) ? route.days : [];
+      const matchesToday =
+        routeDays.length > 0 && routeDays.includes(todayDayId);
+      const matchesSearchTerm =
+        route.to.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        route.from.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchesToday && matchesSearchTerm;
-      });
-    },
-    [rides, searchTerm],
-  );
+      return matchesToday && matchesSearchTerm;
+    });
+  }, [rides, searchTerm]);
 
   return (
     <div className="home-page animate-fade-in">
@@ -97,14 +95,29 @@ const Home = ({ user }) => {
             <h3>Cargando viajes...</h3>
           </div>
         ) : error ? (
-          <div className="empty-state glass-panel text-center" style={{
-            borderLeft: "4px solid var(--warning-color)",
-            backgroundColor: "rgba(255, 193, 7, 0.08)",
-            padding: "32px 24px",
-          }}>
-            <AlertCircle size={32} className="text-warning" style={{ margin: "0 auto 12px" }} />
+          <div
+            className="empty-state glass-panel text-center"
+            style={{
+              borderLeft: "4px solid var(--warning-color)",
+              backgroundColor: "rgba(255, 193, 7, 0.08)",
+              padding: "32px 24px",
+            }}
+          >
+            <AlertCircle
+              size={32}
+              className="text-warning"
+              style={{ margin: "0 auto 12px" }}
+            />
             <h3>Oops, algo salió mal</h3>
-            <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", marginTop: "8px" }}>{error}</p>
+            <p
+              style={{
+                fontSize: "0.95rem",
+                color: "var(--text-secondary)",
+                marginTop: "8px",
+              }}
+            >
+              {error}
+            </p>
           </div>
         ) : filteredRoutes.length > 0 ? (
           <div className="rides-list">
@@ -120,9 +133,7 @@ const Home = ({ user }) => {
         ) : (
           <div className="empty-state glass-panel text-center">
             <h3>No hay viajes programados para hoy</h3>
-            <p>
-              Revisa otro día de la semana o publica una ruta recurrente.
-            </p>
+            <p>Revisa otro día de la semana o publica una ruta recurrente.</p>
           </div>
         )}
       </div>

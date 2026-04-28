@@ -179,11 +179,17 @@ const Profile = ({ user, onUpdateUser }) => {
                 onClick={handleSavePhone}
                 disabled={isSavingContact}
               >
-                {isSavingContact ? <LoaderCircle size={16} className="spin" /> : <Save size={16} />}
+                {isSavingContact ? (
+                  <LoaderCircle size={16} className="spin" />
+                ) : (
+                  <Save size={16} />
+                )}
                 {isSavingContact ? "Guardando..." : "Guardar teléfono"}
               </button>
             </div>
-            {contactMessage && <p className="upload-feedback">{contactMessage}</p>}
+            {contactMessage && (
+              <p className="upload-feedback">{contactMessage}</p>
+            )}
           </article>
 
           <article className="profile-item">

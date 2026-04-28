@@ -128,7 +128,8 @@ const RideConversation = ({
           <p className="ride-conversation-kicker">Comunicación activa</p>
           <h2>{title}</h2>
           <p className="text-secondary">
-            Selecciona un viaje aceptado para ver el chat y los teléfonos de contacto.
+            Selecciona un viaje aceptado para ver el chat y los teléfonos de
+            contacto.
           </p>
         </div>
         <span className="ride-conversation-count">
@@ -169,7 +170,8 @@ const RideConversation = ({
                 <div className="ride-conversation-route">
                   <MapPin size={16} />
                   <span>
-                    {ride?.from?.name || "Origen"} → {ride?.to?.name || "Destino"}
+                    {ride?.from?.name || "Origen"} →{" "}
+                    {ride?.to?.name || "Destino"}
                   </span>
                 </div>
                 <div className="ride-conversation-meta">
@@ -215,10 +217,13 @@ const RideConversation = ({
                         <div className="ride-message-header">
                           <strong>{mine ? "Tú" : message.senderName}</strong>
                           <span>
-                            {new Date(message.createdAt).toLocaleString("es-MX", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })}
+                            {new Date(message.createdAt).toLocaleString(
+                              "es-MX",
+                              {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              },
+                            )}
                           </span>
                         </div>
                         <p>{message.body}</p>
@@ -227,12 +232,16 @@ const RideConversation = ({
                   })
                 ) : (
                   <p className="ride-conversation-placeholder">
-                    Aún no hay mensajes. Escribe el primero para coordinar el viaje.
+                    Aún no hay mensajes. Escribe el primero para coordinar el
+                    viaje.
                   </p>
                 )}
               </div>
 
-              <form className="ride-conversation-form" onSubmit={handleSendMessage}>
+              <form
+                className="ride-conversation-form"
+                onSubmit={handleSendMessage}
+              >
                 <textarea
                   className="input-field ride-conversation-input"
                   value={messageText}
