@@ -6,6 +6,7 @@ import { getRideRequests, getRides } from "../services/api";
 import "./Home.css";
 
 const DAY_IDS = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"];
+const HOME_REFRESH_INTERVAL_MS = 4000;
 
 const Home = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,9 +15,11 @@ const Home = ({ user }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadHomeData = async () => {
+  const loadHomeData = async ({ withLoading = true } = {}) => {
     try {
-      setIsLoading(true);
+      if (withLoading) {
+        setIsLoading(true);
+      }
       setError("");
       const [rideData, requestData] = await Promise.all([
         getRides({ role: "passenger", userId: user?.id }),
@@ -27,12 +30,24 @@ const Home = ({ user }) => {
     } catch (err) {
       setError(err.message || "No se pudieron cargar los viajes.");
     } finally {
-      setIsLoading(false);
+      if (withLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadHomeData();
+    loadHomeData({ withLoading: true });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      loadHomeData({ withLoading: false });
+    }, HOME_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
   }, [user?.id]);
 
   const filteredRoutes = useMemo(() => {

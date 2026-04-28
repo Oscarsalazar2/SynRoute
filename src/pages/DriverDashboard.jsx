@@ -25,6 +25,8 @@ import {
 } from "../services/api";
 import "./DriverDashboard.css";
 
+const DASHBOARD_REFRESH_INTERVAL_MS = 4000;
+
 const DriverDashboard = ({ user }) => {
   const navigate = useNavigate();
   const [driverRides, setDriverRides] = useState([]);
@@ -58,11 +60,13 @@ const DriverDashboard = ({ user }) => {
 
   const weeklyEarnings = Number(driverSummary.weeklyIncome || 0);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async ({ withLoading = true } = {}) => {
     if (!user?.id) return;
 
     try {
-      setIsLoading(true);
+      if (withLoading) {
+        setIsLoading(true);
+      }
       setError("");
 
       const [rides, rideRequests, summary] = await Promise.all([
@@ -77,12 +81,24 @@ const DriverDashboard = ({ user }) => {
     } catch (err) {
       setError(err.message || "No se pudo cargar el panel del conductor.");
     } finally {
-      setIsLoading(false);
+      if (withLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadDashboardData();
+    loadDashboardData({ withLoading: true });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      loadDashboardData({ withLoading: false });
+    }, DASHBOARD_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
   }, [user?.id]);
 
   const handleRequestAction = async (reqId, action) => {

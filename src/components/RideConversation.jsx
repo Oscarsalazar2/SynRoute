@@ -8,6 +8,7 @@ import "./RideConversation.css";
 
 const isConversationOpen = (request) =>
   request.status === "accepted" && request.ride?.status !== "completed";
+const MESSAGE_POLL_INTERVAL_MS = 3000;
 
 const RideConversation = ({
   requests = [],
@@ -51,7 +52,9 @@ const RideConversation = ({
 
     const loadMessages = async () => {
       try {
-        setIsLoadingMessages(true);
+        if (!messages.length) {
+          setIsLoadingMessages(true);
+        }
         setError("");
         const thread = await getRideRequestMessages(
           selectedRequestId,
@@ -72,7 +75,7 @@ const RideConversation = ({
     };
 
     loadMessages();
-    intervalId = window.setInterval(loadMessages, 10000);
+    intervalId = window.setInterval(loadMessages, MESSAGE_POLL_INTERVAL_MS);
 
     return () => {
       isActive = false;
@@ -80,7 +83,7 @@ const RideConversation = ({
         window.clearInterval(intervalId);
       }
     };
-  }, [currentUser?.id, selectedRequestId]);
+  }, [currentUser?.id, selectedRequestId, messages.length]);
 
   const selectedRequest = acceptedRequests.find(
     (request) => request.id === selectedRequestId,
