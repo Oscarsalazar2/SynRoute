@@ -7,6 +7,7 @@ import {
   initDb,
   mapNotificationRow,
   mapRideRequestRow,
+  mapRideRequestMessageRow,
   mapRideRow,
   mapUserRow,
   pool,
@@ -277,12 +278,13 @@ app.put("/api/users/:id", async (req, res) => {
         ""
       ).trim(),
       career: (req.body?.career ?? current.career ?? "").trim(),
+      phoneNumber: (req.body?.phoneNumber ?? current.phone_number ?? "").trim(),
     };
 
     const updated = await pool.query(
       `UPDATE users
-       SET name = $1, email = $2, role = $3, has_been_driver = $4, is_admin = $5, avatar = $6, onboarding_complete = $7, control_number = $8, career = $9
-       WHERE id = $10
+       SET name = $1, email = $2, role = $3, has_been_driver = $4, is_admin = $5, avatar = $6, onboarding_complete = $7, control_number = $8, career = $9, phone_number = $10
+       WHERE id = $11
        RETURNING *`,
       [
         next.name,
@@ -294,6 +296,7 @@ app.put("/api/users/:id", async (req, res) => {
         next.onboardingComplete,
         next.controlNumber,
         next.career,
+        next.phoneNumber,
         id,
       ],
     );
@@ -336,6 +339,7 @@ app.put("/api/users/:id/onboarding", async (req, res) => {
 
     const controlNumber = (req.body?.controlNumber || "").trim();
     const career = (req.body?.career || "").trim();
+    const phoneNumber = (req.body?.phoneNumber || "").trim();
     const car = req.body?.car || {};
     const vehiclePhotos = Array.isArray(req.body?.vehiclePhotos)
       ? req.body.vehiclePhotos
@@ -346,16 +350,18 @@ app.put("/api/users/:id/onboarding", async (req, res) => {
        SET control_number = $1,
            career = $2,
            onboarding_complete = TRUE,
-           car_model = $3,
-           car_color = $4,
-           car_plate = $5,
-           car_capacity = $6,
-           vehicle_photos = $7::jsonb
-       WHERE id = $8
+           phone_number = $3,
+           car_model = $4,
+           car_color = $5,
+           car_plate = $6,
+           car_capacity = $7,
+           vehicle_photos = $8::jsonb
+       WHERE id = $9
        RETURNING *`,
       [
         controlNumber,
         career,
+        phoneNumber,
         car.model || "",
         car.color || "",
         car.plate || "",
@@ -728,24 +734,49 @@ app.post("/api/rides/:id/finish", async (req, res) => {
 app.get("/api/ride-requests", async (req, res) => {
   try {
     const driverId = toInt(req.query.driverId);
-    if (driverId <= 0) {
-      return res.status(400).json({ message: "driverId es obligatorio." });
+    const passengerId = toInt(req.query.passengerId);
+
+    if (driverId <= 0 && passengerId <= 0) {
+      return res
+        .status(400)
+        .json({ message: "Inicia sesión para ver tus solicitudes de viaje." });
+    }
+
+    const values = [];
+    const clauses = [];
+
+    if (driverId > 0) {
+      values.push(driverId);
+      clauses.push(`r.driver_id = $${values.length}`);
+    }
+
+    if (passengerId > 0) {
+      values.push(passengerId);
+      clauses.push(`rr.passenger_id = $${values.length}`);
     }
 
     const result = await pool.query(
-      `SELECT rr.*, u.name AS passenger_name, u.avatar AS passenger_avatar,
+      `SELECT rr.*, r.status AS ride_status, r.origin_name, r.origin_lat, r.origin_lng,
+              r.destination_name, r.destination_lat, r.destination_lng,
+              r.time_text, r.available_seats, r.total_seats, r.price,
+              driver.id AS driver_id, driver.name AS driver_name, driver.avatar AS driver_avatar,
+              driver.phone_number AS driver_phone_number, driver.car_model AS driver_car_model,
+              driver.car_plate AS driver_car_plate,
+              passenger.name AS passenger_name, passenger.avatar AS passenger_avatar,
+              passenger.phone_number AS passenger_phone_number,
               COALESCE(pr.avg_rating, 5) AS passenger_rating
        FROM ride_requests rr
        JOIN rides r ON r.id = rr.ride_id
-       JOIN users u ON u.id = rr.passenger_id
+       JOIN users driver ON driver.id = r.driver_id
+       JOIN users passenger ON passenger.id = rr.passenger_id
        LEFT JOIN (
          SELECT passenger_id, ROUND(AVG(rating)::numeric, 1) AS avg_rating
          FROM ride_ratings
          GROUP BY passenger_id
        ) pr ON pr.passenger_id = rr.passenger_id
-       WHERE r.driver_id = $1
+       ${clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""}
        ORDER BY rr.created_at DESC`,
-      [driverId],
+      values,
     );
 
     return res.json({ requests: result.rows.map(mapRideRequestRow) });
@@ -754,6 +785,111 @@ app.get("/api/ride-requests", async (req, res) => {
     return res
       .status(500)
       .json({ message: "No se pudieron obtener solicitudes." });
+  }
+});
+
+app.get("/api/ride-requests/:id/messages", async (req, res) => {
+  try {
+    const requestId = toInt(req.params.id);
+    const userId = toInt(req.query.userId);
+
+    if (requestId <= 0 || userId <= 0) {
+      return res.status(400).json({ message: "requestId y userId son obligatorios." });
+    }
+
+    const accessResult = await pool.query(
+      `SELECT rr.id, rr.passenger_id, r.driver_id, rr.status
+       FROM ride_requests rr
+       JOIN rides r ON r.id = rr.ride_id
+       WHERE rr.id = $1`,
+      [requestId],
+    );
+    const accessRow = accessResult.rows[0];
+
+    if (!accessRow) {
+      return res.status(404).json({ message: "Solicitud no encontrada." });
+    }
+
+    if (
+      Number(accessRow.passenger_id) !== userId &&
+      Number(accessRow.driver_id) !== userId
+    ) {
+      return res.status(403).json({ message: "No tienes permisos para ver esta conversación." });
+    }
+
+    const result = await pool.query(
+      `SELECT m.*, sender.name AS sender_name, sender.avatar AS sender_avatar
+       FROM ride_request_messages m
+       JOIN users sender ON sender.id = m.sender_id
+       WHERE m.ride_request_id = $1
+       ORDER BY m.created_at ASC, m.id ASC`,
+      [requestId],
+    );
+
+    return res.json({ messages: result.rows.map(mapRideRequestMessageRow) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "No se pudieron obtener mensajes." });
+  }
+});
+
+app.post("/api/ride-requests/:id/messages", async (req, res) => {
+  try {
+    const requestId = toInt(req.params.id);
+    const senderId = toInt(req.body?.senderId);
+    const message = String(req.body?.message || "").trim();
+
+    if (requestId <= 0 || senderId <= 0 || !message) {
+      return res.status(400).json({ message: "requestId, senderId y message son obligatorios." });
+    }
+
+    const accessResult = await pool.query(
+      `SELECT rr.id, rr.passenger_id, r.driver_id, rr.status
+       FROM ride_requests rr
+       JOIN rides r ON r.id = rr.ride_id
+       WHERE rr.id = $1`,
+      [requestId],
+    );
+    const accessRow = accessResult.rows[0];
+
+    if (!accessRow) {
+      return res.status(404).json({ message: "Solicitud no encontrada." });
+    }
+
+    if (
+      Number(accessRow.passenger_id) !== senderId &&
+      Number(accessRow.driver_id) !== senderId
+    ) {
+      return res.status(403).json({ message: "No tienes permisos para escribir en esta conversación." });
+    }
+
+    if (accessRow.status !== "accepted") {
+      return res.status(400).json({ message: "Solo puedes escribir cuando el viaje ya fue aceptado." });
+    }
+
+    const inserted = await pool.query(
+      `INSERT INTO ride_request_messages (ride_request_id, sender_id, body)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [requestId, senderId, message],
+    );
+
+    const senderResult = await pool.query(
+      "SELECT name, avatar FROM users WHERE id = $1",
+      [senderId],
+    );
+    const sender = senderResult.rows[0] || {};
+
+    return res.status(201).json({
+      message: mapRideRequestMessageRow({
+        ...inserted.rows[0],
+        sender_name: sender.name,
+        sender_avatar: sender.avatar,
+      }),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "No se pudo enviar el mensaje." });
   }
 });
 

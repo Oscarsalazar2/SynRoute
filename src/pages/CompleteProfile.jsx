@@ -5,6 +5,7 @@ import {
   Hash,
   ImagePlus,
   LoaderCircle,
+  Phone,
   Save,
   ShieldCheck,
   Trash2,
@@ -37,6 +38,7 @@ const CompleteProfile = ({ user, onComplete }) => {
   const [formData, setFormData] = useState({
     controlNumber: user?.controlNumber || "",
     career: user?.career || "",
+    phoneNumber: user?.phoneNumber || "",
     carModel: user?.car?.model || "",
     carColor: user?.car?.color || "",
     carPlate: user?.car?.plate || "",
@@ -128,11 +130,15 @@ const CompleteProfile = ({ user, onComplete }) => {
     setVehiclePhotos((prev) => prev.filter((url) => url !== photoUrl));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!formData.controlNumber.trim() || !formData.career.trim()) {
-      setStatusMessage("Completa número de control y carrera.");
+    if (
+      !formData.controlNumber.trim() ||
+      !formData.career.trim() ||
+      !formData.phoneNumber.trim()
+    ) {
+      setStatusMessage("Completa número de control, carrera y teléfono.");
       return;
     }
 
@@ -156,26 +162,31 @@ const CompleteProfile = ({ user, onComplete }) => {
     setIsSaving(true);
     setStatusMessage("Guardando información...");
 
-    setTimeout(() => {
-      const nextUser = {
-        controlNumber: formData.controlNumber.trim(),
-        career: formData.career,
-        onboardingComplete: true,
+    const nextUser = {
+      controlNumber: formData.controlNumber.trim(),
+      career: formData.career,
+      phoneNumber: formData.phoneNumber.trim(),
+      onboardingComplete: true,
+    };
+
+    if (isDriver) {
+      nextUser.car = {
+        model: formData.carModel.trim(),
+        color: formData.carColor.trim(),
+        plate: formData.carPlate.trim().toUpperCase(),
+        capacity: Number(formData.carCapacity),
       };
+      nextUser.vehiclePhotos = vehiclePhotos;
+    }
 
-      if (isDriver) {
-        nextUser.car = {
-          model: formData.carModel.trim(),
-          color: formData.carColor.trim(),
-          plate: formData.carPlate.trim().toUpperCase(),
-          capacity: Number(formData.carCapacity),
-        };
-        nextUser.vehiclePhotos = vehiclePhotos;
-      }
-
-      onComplete(nextUser);
+    try {
+      await onComplete(nextUser);
+      setStatusMessage("Perfil completado correctamente.");
+    } catch {
+      setStatusMessage("No se pudo guardar la información. Intenta de nuevo.");
+    } finally {
       setIsSaving(false);
-    }, 500);
+    }
   };
 
   return (
@@ -190,6 +201,20 @@ const CompleteProfile = ({ user, onComplete }) => {
         </header>
 
         <form className="complete-profile-form" onSubmit={handleSubmit}>
+          <div className="input-group">
+            <label className="input-label">
+              <Phone size={16} /> Teléfono
+            </label>
+            <input
+              className="input-field"
+              name="phoneNumber"
+              value={formData.phoneNumber}
+              onChange={handleChange}
+              placeholder="Ej. 868-123-4567"
+              required
+            />
+          </div>
+
           <div className="input-group">
             <label className="input-label">
               <Hash size={16} /> Número de control

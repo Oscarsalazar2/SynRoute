@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import RideConversation from "../components/RideConversation";
 import {
   deleteRide,
   finishRide,
@@ -66,7 +67,7 @@ const DriverDashboard = ({ user }) => {
 
       const [rides, rideRequests, summary] = await Promise.all([
         getRides({ role: "driver", userId: user.id }),
-        getRideRequests(user.id),
+        getRideRequests({ driverId: user.id }),
         getDriverSummary(user.id),
       ]);
 
@@ -170,9 +171,15 @@ const DriverDashboard = ({ user }) => {
       {error && (
         <div
           className="glass-panel text-center mb-lg"
-          style={{ padding: "16px" }}
+          style={{
+            padding: "24px",
+            borderLeft: "4px solid var(--warning-color)",
+            backgroundColor: "rgba(255, 193, 7, 0.08)",
+          }}
         >
-          <p>{error}</p>
+          <AlertCircle size={32} className="text-warning" style={{ margin: "0 auto 12px" }} />
+          <h3 style={{ marginBottom: "8px" }}>Oops, algo salió mal</h3>
+          <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)" }}>{error}</p>
         </div>
       )}
 
@@ -224,7 +231,7 @@ const DriverDashboard = ({ user }) => {
             >
               <h3>No tienes viajes activos</h3>
               <p className="text-secondary">
-                Tus rutas automatizadas aparecerán aquí.
+                Tus rutas programadas aparecerán aquí.
               </p>
             </div>
           ) : (
@@ -294,6 +301,17 @@ const DriverDashboard = ({ user }) => {
                 </div>
               </div>
             ))
+          )}
+
+          {requests.some((r) => r.status === "accepted") && (
+            <RideConversation
+              requests={requests}
+              currentUser={user}
+              role="driver"
+              title="Viajes aceptados y chat"
+              emptyMessage="Cuando aceptes solicitudes, aquí aparecerá la conversación con cada pasajero y su teléfono."
+              onRefresh={loadDashboardData}
+            />
           )}
 
           <h2 className="section-title flex justify-between items-center mt-xl">

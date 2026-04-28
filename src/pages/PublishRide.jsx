@@ -150,11 +150,11 @@ const PublishRide = ({ user }) => {
   return (
     <div className="publish-page animate-fade-in">
       <div className="page-header text-center mb-lg">
-        <h2>{editId ? "Modificar Ruta" : "Programar Nueva Ruta"}</h2>
+        <h2>{editId ? "Modificar Ruta" : "Programar Ruta Recurrente"}</h2>
         <p>
           {editId
             ? "Actualiza los datos de tu viaje publicado."
-            : "Automatiza tus viajes frecuentes escogiendo qué días viajas."}
+            : "Programa tus viajes frecuentes escogiendo qué días viajas."}
         </p>
       </div>
 
@@ -278,7 +278,7 @@ const PublishRide = ({ user }) => {
               ) : editId ? (
                 "Guardar Cambios"
               ) : (
-                "Automatizar Ruta"
+                "Guardar Ruta Recurrente"
               )}
             </button>
           </form>

@@ -17,6 +17,7 @@ const users = [
     role: "passenger",
     controlNumber: "ADM0001",
     career: "Ingeniería en Sistemas Computacionales",
+    phoneNumber: "868-100-0001",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
     isAdmin: true,
     onboardingComplete: true,
@@ -33,6 +34,7 @@ const users = [
     role: "passenger",
     controlNumber: "20230000",
     career: "Ingeniería Mecatrónica",
+    phoneNumber: "868-200-0002",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Oscar",
     isAdmin: false,
     onboardingComplete: true,
@@ -49,6 +51,7 @@ const users = [
     role: "driver",
     controlNumber: "22260053",
     career: "Ingeniería en Sistemas Computacionales",
+    phoneNumber: "868-300-0003",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=driver",
     isAdmin: false,
     onboardingComplete: true,
@@ -71,6 +74,7 @@ for (const user of users) {
       role,
       control_number,
       career,
+      phone_number,
       avatar,
       is_admin,
       onboarding_complete,
@@ -80,7 +84,7 @@ for (const user of users) {
       car_capacity,
       vehicle_photos
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb
     )`,
     [
       user.name,
@@ -89,6 +93,7 @@ for (const user of users) {
       user.role,
       user.controlNumber,
       user.career,
+      user.phoneNumber,
       user.avatar,
       user.isAdmin,
       user.onboardingComplete,
@@ -166,13 +171,26 @@ if (driver) {
   );
 
   if (passenger && rideInsert.rows[0]) {
-    await pool.query(
+    const requestResult = await pool.query(
       `INSERT INTO ride_requests (ride_id, passenger_id, message, status)
-       VALUES ($1, $2, $3, 'pending')`,
+       VALUES ($1, $2, $3, 'accepted')
+       RETURNING id`,
       [
         rideInsert.rows[0].id,
         passenger.id,
         "Hola, llevo mochila pequena. Gracias!",
+      ],
+    );
+
+    await pool.query(
+      `INSERT INTO ride_request_messages (ride_request_id, sender_id, body)
+       VALUES ($1, $2, $3), ($1, $4, $5)`,
+      [
+        requestResult.rows[0].id,
+        passenger.id,
+        "Hola, ¿a qué hora pasas por mí?",
+        driver.id,
+        "Voy por ti en 10 minutos, te aviso cuando llegue.",
       ],
     );
   }

@@ -171,6 +171,7 @@ function App() {
         avatar: nextLocalUser.avatar,
         controlNumber: nextLocalUser.controlNumber,
         career: nextLocalUser.career,
+        phoneNumber: nextLocalUser.phoneNumber,
       });
 
       setUser((prev) => ({
@@ -180,6 +181,7 @@ function App() {
       }));
     } catch (error) {
       console.error("No se pudo persistir perfil:", error);
+      throw error;
     }
   };
 
@@ -209,6 +211,7 @@ function App() {
       }));
     } catch (error) {
       console.error("No se pudo persistir onboarding:", error);
+      throw error;
     }
   };
 

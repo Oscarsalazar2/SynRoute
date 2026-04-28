@@ -21,6 +21,7 @@ export const initDb = async () => {
       has_been_driver BOOLEAN NOT NULL DEFAULT FALSE,
       control_number TEXT DEFAULT '',
       career TEXT DEFAULT '',
+      phone_number TEXT DEFAULT '',
       avatar TEXT DEFAULT '',
       is_admin BOOLEAN NOT NULL DEFAULT FALSE,
       onboarding_complete BOOLEAN NOT NULL DEFAULT FALSE,
@@ -36,6 +37,11 @@ export const initDb = async () => {
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS has_been_driver BOOLEAN NOT NULL DEFAULT FALSE;
+  `);
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS phone_number TEXT DEFAULT '';
   `);
 
   await pool.query(`
@@ -74,6 +80,16 @@ export const initDb = async () => {
       status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (ride_id, passenger_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ride_request_messages (
+      id BIGSERIAL PRIMARY KEY,
+      ride_request_id BIGINT NOT NULL REFERENCES ride_requests(id) ON DELETE CASCADE,
+      sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
@@ -139,6 +155,7 @@ export const mapUserRow = (row) => {
     role: row.role,
     controlNumber: row.control_number || "",
     career: row.career || "",
+    phoneNumber: row.phone_number || "",
     avatar: row.avatar || "",
     isAdmin: Boolean(row.is_admin),
     onboardingComplete: Boolean(row.onboarding_complete),
@@ -194,15 +211,61 @@ export const mapRideRequestRow = (row) => {
     id: String(row.id),
     rideId: String(row.ride_id),
     routeId: String(row.ride_id),
+    ride: row.ride_id
+      ? {
+          id: String(row.ride_id),
+          from: {
+            name: row.origin_name || "",
+            lat: Number(row.origin_lat || 0),
+            lng: Number(row.origin_lng || 0),
+          },
+          to: {
+            name: row.destination_name || "",
+            lat: Number(row.destination_lat || 0),
+            lng: Number(row.destination_lng || 0),
+          },
+          time: row.time_text || "",
+          price: Number(row.price || 0),
+          availableSeats: Number(row.available_seats || 0),
+          totalSeats: Number(row.total_seats || 0),
+          status: row.ride_status || row.status || "",
+        }
+      : null,
+    driver: row.driver_id
+      ? {
+          id: String(row.driver_id),
+          name: row.driver_name || "",
+          avatar: row.driver_avatar || "",
+          phoneNumber: row.driver_phone_number || "",
+          carModel: row.driver_car_model || "",
+          plate: row.driver_car_plate || "",
+        }
+      : null,
     passenger: {
       id: String(row.passenger_id),
       name: row.passenger_name || "",
       avatar: row.passenger_avatar || "",
+      phoneNumber: row.passenger_phone_number || "",
       isVerified: true,
       rating: Number(row.passenger_rating || 5),
     },
     status: row.status,
     message: row.message || "",
+    createdAt: row.created_at,
+  };
+};
+
+export const mapRideRequestMessageRow = (row) => {
+  if (!row) return null;
+
+  return {
+    id: String(row.id),
+    rideRequestId: String(row.ride_request_id),
+    senderId: String(row.sender_id),
+    senderName: row.sender_name || "",
+    senderAvatar: row.sender_avatar || "",
+    body: row.body || "",
+    createdAt: row.created_at,
   };
 };
 

@@ -119,10 +119,19 @@ export const getDriverSummary = async (driverId) => {
   return data.summary || { balance: 0, weeklyIncome: 0, completedRides: 0 };
 };
 
-export const getRideRequests = async (driverId) => {
-  const data = await request(
-    `/api/ride-requests?driverId=${encodeURIComponent(String(driverId))}`,
-  );
+export const getRideRequests = async ({ driverId, passengerId } = {}) => {
+  const search = new URLSearchParams();
+
+  if (driverId) {
+    search.set("driverId", String(driverId));
+  }
+
+  if (passengerId) {
+    search.set("passengerId", String(passengerId));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const data = await request(`/api/ride-requests${suffix}`);
   return data.requests || [];
 };
 
@@ -139,6 +148,21 @@ export const updateRideRequest = async (id, { driverId, status }) => {
     method: "PUT",
     body: JSON.stringify({ driverId, status }),
   });
+};
+
+export const getRideRequestMessages = async (requestId, userId) => {
+  const data = await request(
+    `/api/ride-requests/${requestId}/messages?userId=${encodeURIComponent(String(userId))}`,
+  );
+  return data.messages || [];
+};
+
+export const sendRideRequestMessage = async (requestId, senderId, message) => {
+  const data = await request(`/api/ride-requests/${requestId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ senderId, message }),
+  });
+  return data.message;
 };
 
 export const getNotifications = async (userId) => {

@@ -4,10 +4,12 @@ import {
   CheckCircle2,
   LoaderCircle,
   Mail,
+  Phone,
   User,
   GraduationCap,
   Hash,
   CarFront,
+  Save,
 } from "lucide-react";
 import { getCloudinarySignature } from "../services/api";
 import "./Profile.css";
@@ -19,6 +21,9 @@ const Profile = ({ user, onUpdateUser }) => {
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
+  const [contactMessage, setContactMessage] = useState("");
+  const [isSavingContact, setIsSavingContact] = useState(false);
 
   const fallbackAvatar = useMemo(
     () =>
@@ -27,6 +32,10 @@ const Profile = ({ user, onUpdateUser }) => {
   );
 
   const profileAvatar = user?.avatar || fallbackAvatar;
+
+  React.useEffect(() => {
+    setPhoneNumber(user?.phoneNumber || "");
+  }, [user?.phoneNumber]);
 
   const handleChooseImage = () => {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -85,6 +94,25 @@ const Profile = ({ user, onUpdateUser }) => {
     setIsUploading(false);
   };
 
+  const handleSavePhone = async () => {
+    if (!phoneNumber.trim()) {
+      setContactMessage("Ingresa un número de teléfono.");
+      return;
+    }
+
+    setIsSavingContact(true);
+    setContactMessage("Guardando teléfono...");
+
+    try {
+      await onUpdateUser({ phoneNumber: phoneNumber.trim() });
+      setContactMessage("Teléfono actualizado con exito.");
+    } catch {
+      setContactMessage("No se pudo actualizar el teléfono.");
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
   return (
     <section className="profile-page animate-fade-in">
       <div className="profile-card glass-panel">
@@ -134,6 +162,30 @@ const Profile = ({ user, onUpdateUser }) => {
         </div>
 
         <div className="profile-grid">
+          <article className="profile-item profile-item-wide">
+            <span className="profile-item-label">
+              <Phone size={16} /> Teléfono de contacto
+            </span>
+            <div className="profile-phone-editor">
+              <input
+                className="input-field"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Ej. 868-123-4567"
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleSavePhone}
+                disabled={isSavingContact}
+              >
+                {isSavingContact ? <LoaderCircle size={16} className="spin" /> : <Save size={16} />}
+                {isSavingContact ? "Guardando..." : "Guardar teléfono"}
+              </button>
+            </div>
+            {contactMessage && <p className="upload-feedback">{contactMessage}</p>}
+          </article>
+
           <article className="profile-item">
             <span className="profile-item-label">
               <User size={16} /> Nombre completo

@@ -120,6 +120,18 @@
   grid-column: span 2;
 }
 
+.profile-phone-editor {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.profile-phone-editor .input-field {
+  flex: 1;
+  min-width: 220px;
+}
+
 .profile-vehicle-gallery {
   margin-top: 12px;
   display: grid;

@@ -6,6 +6,7 @@ export const currentUser = {
   email: 'L20230000@matamoros.tecnm.mx',
   controlNumber: '20230000',
   career: 'Ingeniería en Mecatrónica',
+  phoneNumber: '868-123-4567',
   avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oscar',
   role: 'passenger', // 'driver' or 'passenger'
   rating: 4.8
@@ -17,6 +18,7 @@ export const currentDriver = {
   email: 'L22260053@matamoros.tecnm.mx',
   controlNumber: '22260053',
   career: 'Ingeniería en Sistemas Computacionales',
+  phoneNumber: '868-765-4321',
   avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oscar',
   role: 'driver',
   rating: 4.9,
